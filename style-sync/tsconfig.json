@@ -5,7 +5,7 @@
   "//update": "To update run: npx shop-minis upgrade",
   "//docs": "Learn more: https://shopify.dev/docs/api/shop-minis/configuration",
   "compilerOptions": {
-    "allowJs": true,
+    "allowJs": false,
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,

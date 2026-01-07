@@ -58,6 +58,36 @@ export function useAppInitialization(): UseAppInitializationReturn {
   
   const hasInitializedRef = useRef(false)
   const initializationStartTimeRef = useRef<number | null>(null)
+  const retryCountRef = useRef(0)
+
+  /**
+   * Retry authentication with exponential backoff
+   * Silently retries without showing errors to user
+   */
+  const getValidTokenWithRetry = useCallback(async (): Promise<string> => {
+    const MAX_AUTH_RETRIES = 3
+    const AUTH_RETRY_DELAYS = [1000, 2000, 4000] // Exponential backoff: 1s, 2s, 4s
+    let lastError: Error | null = null
+    
+    for (let attempt = 0; attempt < MAX_AUTH_RETRIES; attempt++) {
+      try {
+        const token = await getValidToken()
+        return token
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('Authentication failed')
+        console.warn(`⚠️ Authentication attempt ${attempt + 1}/${MAX_AUTH_RETRIES} failed, retrying...`)
+        
+        // Don't wait on last attempt
+        if (attempt < MAX_AUTH_RETRIES - 1) {
+          const delay = AUTH_RETRY_DELAYS[attempt] || AUTH_RETRY_DELAYS[AUTH_RETRY_DELAYS.length - 1]
+          await new Promise(resolve => setTimeout(resolve, delay))
+        }
+      }
+    }
+    
+    // If all retries exhausted, throw the last error
+    throw lastError || new Error('Authentication failed after retries')
+  }, [getValidToken])
 
   const initialize = useCallback(async () => {
     // Prevent multiple simultaneous initializations
@@ -74,9 +104,9 @@ export function useAppInitialization(): UseAppInitializationReturn {
     setError(null)
 
     try {
-      // Step 1: Authentication - Get JWT token and public ID
+      // Step 1: Authentication - Get JWT token and public ID with automatic retries
       console.log('🔐 Step 1: Authenticating...')
-      await getValidToken()
+      await getValidTokenWithRetry()
       console.log('✅ Authentication complete')
 
       // Wait a moment for authData to be set (it's set asynchronously)
@@ -163,6 +193,8 @@ export function useAppInitialization(): UseAppInitializationReturn {
       
       setInitializationData(data)
       setIsInitializing(false)
+      // Reset retry count on successful initialization
+      retryCountRef.current = 0
       
       console.log('✅ App initialization complete:', {
         hasProfile,
@@ -172,12 +204,28 @@ export function useAppInitialization(): UseAppInitializationReturn {
 
     } catch (err) {
       console.error('❌ Initialization error:', err)
-      setError(err instanceof Error ? err.message : 'Failed to initialize app')
-      setIsInitializing(false)
-      // Reset hasInitializedRef on error so retry can work
+      // Instead of setting error, retry after a delay
+      // This keeps the loading screen showing and retries silently
+      console.log('🔄 Retrying initialization silently...')
+      
+      // Reset flag to allow retry
       hasInitializedRef.current = false
+      
+      // Calculate exponential backoff delay (starts at 2s, doubles each time, max 30s)
+      const retryDelay = Math.min(30000, 2000 * Math.pow(2, retryCountRef.current))
+      retryCountRef.current++
+      
+      console.log(`⏳ Retrying in ${retryDelay}ms (attempt ${retryCountRef.current})...`)
+      
+      // Retry after delay - keep isInitializing true so loading screen stays visible
+      setTimeout(() => {
+        initialize()
+      }, retryDelay)
+      
+      // Never set error state - user won't see any error message
+      // Keep isInitializing true - loading screen stays visible
     }
-  }, [authData, refreshFriends])
+  }, [authData, refreshFriends, getValidTokenWithRetry])
 
   // Run initialization on mount
   useEffect(() => {
