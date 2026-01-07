@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useCurrentUser, Button, Input, Card, Image } from '@shopify/shop-minis-react'
 import { useAuth } from '../../hooks/useAuth'
 
@@ -18,6 +18,10 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
     const [errors, setErrors] = useState<Record<string, string>>({})
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [isPublic, setIsPublic] = useState(true)
+    const [suggestedUsernames, setSuggestedUsernames] = useState<string[]>([])
+    const [isCheckingUsername, setIsCheckingUsername] = useState(false)
+    const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
+    const hasInitializedUsername = useRef(false)
     
     const interestOptions = [
         'Fashion', 'Streetwear', 'Vintage', 'Luxury', 'Sustainable', 
@@ -30,9 +34,130 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
     const validateUsername = (value: string) => {
         if (!value) return 'Username is required'
         if (value.length < 3) return 'Username must be at least 3 characters'
-        if (!/^[a-z0-9_]+$/.test(value)) return 'Only lowercase letters, numbers, and underscores'
+        if (!/^[a-zA-Z0-9_]+$/.test(value)) return 'Only letters, numbers, and underscores'
         return null
     }
+    
+    // Helper function to convert displayName to valid username format
+    const formatDisplayNameToUsername = (displayName: string): string => {
+        return displayName
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, '_') // Replace non-alphanumeric with underscore
+            .replace(/_+/g, '_') // Replace consecutive underscores with single underscore
+            .replace(/^_|_$/g, '') // Remove leading/trailing underscores
+            .slice(0, 20) // Limit length
+    }
+    
+    // Function to check username availability
+    const checkUsernameAvailability = useCallback(async (usernameToCheck: string): Promise<{ available: boolean; suggestions: string[] } | null> => {
+        if (!usernameToCheck || usernameToCheck.length < 3) return null
+        
+        try {
+            const token = await getValidToken()
+            const response = await fetch(
+                `https://fhyisvyhahqxryanjnby.supabase.co/functions/v1/check-username-availability?username=${encodeURIComponent(usernameToCheck)}`,
+                {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            )
+            
+            if (!response.ok) {
+                const errorData = await response.json()
+                console.error('Error checking username:', errorData)
+                return null
+            }
+            
+            const result = await response.json()
+            return result
+        } catch (error) {
+            console.error('Error checking username availability:', error)
+            return null
+        }
+    }, [getValidToken])
+    
+    // Initialize username from displayName on mount
+    useEffect(() => {
+        const initializeUsername = async () => {
+            if (hasInitializedUsername.current || !currentUser?.displayName || username) return
+            
+            hasInitializedUsername.current = true
+            const displayName = currentUser.displayName
+            const cleanedName = formatDisplayNameToUsername(displayName)
+            
+            if (cleanedName.length >= 3) {
+                setIsCheckingUsername(true)
+                const result = await checkUsernameAvailability(cleanedName)
+                
+                if (result) {
+                    if (result.available) {
+                        setUsername(cleanedName)
+                        setUsernameAvailable(true)
+                        setSuggestedUsernames([])
+                    } else {
+                        setSuggestedUsernames(result.suggestions || [])
+                        setUsernameAvailable(false)
+                    }
+                }
+                setIsCheckingUsername(false)
+            }
+        }
+        
+        initializeUsername()
+    }, [currentUser?.displayName, username, checkUsernameAvailability])
+    
+    // Handle username change with real-time validation
+    const handleUsernameChange = async (value: string) => {
+        setUsername(value)
+        setUsernameAvailable(null)
+        setSuggestedUsernames([])
+        
+        const error = validateUsername(value)
+        if (error) {
+            setErrors(prev => ({ ...prev, username: error }))
+            return
+        }
+        
+        // Clear username error
+        setErrors(prev => {
+            const newErrors = { ...prev }
+            delete newErrors.username
+            return newErrors
+        })
+        
+        // Check availability if valid format
+        if (value.length >= 3) {
+            setIsCheckingUsername(true)
+            const result = await checkUsernameAvailability(value.toLowerCase())
+            
+            if (result) {
+                setUsernameAvailable(result.available)
+                if (!result.available) {
+                    setSuggestedUsernames(result.suggestions || [])
+                    setErrors(prev => ({
+                        ...prev,
+                        username: 'Username already taken'
+                    }))
+                } else {
+                    setSuggestedUsernames([])
+                }
+            }
+            setIsCheckingUsername(false)
+        }
+    }
+    
+    // Handle selecting a suggested username
+    const handleSelectSuggestion = async (suggestedUsername: string) => {
+        setUsername(suggestedUsername)
+        setSuggestedUsernames([])
+        await handleUsernameChange(suggestedUsername)
+    }
+
+
+
     
     const removeInterest = (interestToRemove: string) => {
         setInterests(prev => prev.filter(interest => interest !== interestToRemove))
@@ -117,6 +242,14 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
 
             if (!response.ok) {
                 const errorData = await response.json()
+                
+                // Handle duplicate username error
+                if (response.status === 409 && errorData.error?.includes('Username already exists')) {
+                    setErrors({ username: 'Username already taken. Please choose another.' })
+                    setIsSubmitting(false)
+                    return
+                }
+                
                 throw new Error(errorData.error || 'Failed to create profile')
             }
 
@@ -143,44 +276,90 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
     }
     
     return (
-        <div className="min-h-screen  p-4 max-w-md mx-auto">
-            <Card className="p-6">
+        <div className="min-h-screen p-4 max-w-md mx-auto">
+            <Card className="pt-0 px-4 pb-4">
                 <form onSubmit={handleSubmit}>
                     {/* Header */}
-                    <div className="text-center mb-6">
-                        <h1 className="text-2xl font-bold mb-2 text-white">Welcome to Style$ync</h1>
-                        <p className="text-white/80">Let's set up your style profile</p>
+                    <div className="text-center mb-1.5">
+                        <h1 className="text-xl font-bold mb-0 text-white">Welcome to Style$ync</h1>
+                        <p className="text-white/80 text-xs">Let's set up your style profile</p>
                     </div>
                     
                     {/* User Info Display */}
-                    <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                            {currentUser?.avatarImage?.url && (
+                    <div className="mb-4 flex flex-col items-center">
+                        {currentUser?.avatarImage?.url ? (
+                            <div className="w-24 h-24 rounded-full overflow-hidden mb-3">
                                 <Image 
                                     src={currentUser.avatarImage.url} 
                                     alt="Profile" 
-                                    className="w-12 h-12 rounded-full"
+                                    className="w-full h-full object-cover"
                                 />
-                            )}
-                            <div>
-                                <p className="font-medium">{currentUser?.displayName || 'User'}</p>
-                                <p className="text-sm text-gray-500">Connected via Shop</p>
                             </div>
-                        </div>
+                        ) : (
+                            <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center mb-3">
+                                <span className="text-3xl text-gray-500">{currentUser?.displayName?.[0]?.toUpperCase() || 'U'}</span>
+                            </div>
+                        )}
+                        <p className="font-medium text-gray-800 text-lg">{currentUser?.displayName || 'User'}</p>
                     </div>
                     
                     {/* Username Input */}
+                    {/*  Right now setting username through field || Per Davids suggestion we should attempt to do two things. 
+                        First check if the current users Shop name Name is already in StyleSyncs Db. Use an Index for this. 
+                        If it isnt we fill our users name to be their "displayName" , if "displayName" exists in userProfiles we give three options of alternative usernames
+                        these can be choosen or the user can fill in their own username in the field below. This can be checked for two things, 1. Valid input, 2. Unique username
+
+                         if displayname not in userprofiles -> make the username display name
+                         elif displayname already exists -> suggest alternative usernames built off of the displayname that the user can suggest
+                         else allow the user to select their own custom username. just make sure it is not in the user_profiles already. 
+
+                    
+                         
+                    */}
+
+                    {/* Strip white space later too much according to David. Shopify tightended their standards for Shop app.  */}
                     <div className="mb-4">
                         <label className="block text-sm font-medium mb-1">Username *</label>
-                        <Input
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            placeholder="your_username"
-                            className="w-full"
-                            aria-invalid={!!errors.username}
-                        />
+                        <div className="relative">
+                            <Input
+                                value={username}
+                                onChange={(e) => handleUsernameChange(e.target.value)}
+                                placeholder="Your Username"
+                                className="w-full rounded-full px-4 py-2.5"
+                                aria-invalid={!!errors.username}
+                            />
+                            {isCheckingUsername && (
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
+                                    Checking...
+                                </span>
+                            )}
+                            {usernameAvailable === true && !isCheckingUsername && username && (
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-green-600">
+                                    ✓ Available
+                                </span>
+                            )}
+                        </div>
                         {errors.username && (
                             <p className="text-sm text-red-600 mt-1">{errors.username}</p>
+                        )}
+                        
+                        {/* Show suggested usernames if displayName was taken */}
+                        {suggestedUsernames.length > 0 && (
+                            <div className="mt-3">
+                                <p className="text-sm text-gray-600 mb-2">Suggested usernames:</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {suggestedUsernames.map((suggested) => (
+                                        <button
+                                            key={suggested}
+                                            type="button"
+                                            onClick={() => handleSelectSuggestion(suggested)}
+                                            className="px-4 py-1.5 text-base bg-blue-100 text-blue-800 rounded-full hover:bg-blue-200 transition-colors"
+                                        >
+                                            {suggested}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         )}
                     </div>
                     
@@ -191,12 +370,12 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                             value={bio}
                             onChange={(e) => setBio(e.target.value)}
                             placeholder="Tell us about your style..."
-                            className="w-full"
+                            className="w-full rounded-full px-4 py-2.5"
                         />
                     </div>
                     
                     {/* Interests */}
-                    <div className="mb-6">
+                    <div className="mb-4">
                         <label className="block text-sm font-medium mb-3">Your Interests</label>
                         
                         {/* Bubble Interface */}
@@ -205,7 +384,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                             {interests.map((interest, index) => (
                                 <div
                                     key={index}
-                                    className="flex items-center gap-1 bg-blue-100 text-blue-800 px-3 py-2 rounded-full text-sm border-2 border-blue-200"
+                                    className="flex items-center gap-1 bg-blue-100 text-blue-800 px-4 py-2.5 rounded-full text-base border-2 border-blue-200"
                                 >
                                     <span>{interest}</span>
                                     <button
@@ -220,7 +399,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                             
                             {/* Active Input Bubble */}
                             {activeBubbleIndex !== null && (
-                                <div className="bg-blue-50 border-2 border-blue-300 border-dashed px-3 py-2 rounded-full text-sm">
+                                <div className="bg-blue-50 border-2 border-blue-300 border-dashed px-4 py-2.5 rounded-full text-base">
                                     <input
                                         type="text"
                                         value={customInterest}
@@ -239,7 +418,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                                 <button
                                     type="button"
                                     onClick={startNewBubble}
-                                    className="bg-gray-100 border-2 border-dashed border-gray-300 text-gray-500 px-3 py-2 rounded-full text-sm hover:bg-gray-200 hover:border-gray-400 transition-colors"
+                                    className="bg-gray-100 border-2 border-dashed border-gray-300 text-gray-500 px-4 py-2.5 rounded-full text-base hover:bg-gray-200 hover:border-gray-400 transition-colors"
                                 >
                                     + Add Interest
                                 </button>
@@ -278,7 +457,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                     </div>
 
                     {/* Gender */}
-                    <div className="mb-6">
+                    <div className="mb-4">
                         <label className="block text-sm font-medium mb-3">Gender (optional)</label>
                         <div className="grid grid-cols-3 gap-2">
                             {(['MALE','FEMALE','NEUTRAL'] as const).map(g => (
@@ -299,7 +478,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                     </div>
 
                     {/* Public/Private Profile Toggle */}
-                    <div className="mb-6">
+                    <div className="mb-4">
                         <label className="block text-sm font-medium mb-3">Profile Visibility</label>
                         <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg p-4">
                             <div className="flex items-center justify-between mb-2">

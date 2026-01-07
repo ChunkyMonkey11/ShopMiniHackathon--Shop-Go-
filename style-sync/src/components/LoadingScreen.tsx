@@ -7,7 +7,7 @@
  * - Smooth transitions to app
  */
 
-import logoImage from '../logo.png'
+import logoImage from '../icon.png'
 
 interface LoadingScreenProps {
   error?: string | null

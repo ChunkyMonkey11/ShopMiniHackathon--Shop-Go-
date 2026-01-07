@@ -30,7 +30,7 @@ StyleSync is a social shopping app that helps users discover and share style wit
   2. Navigate to Shop Minis section
   3. Tap on "StyleSync" mini
   4. If first-time user, complete onboarding:
-     - Enter username (lowercase, numbers, underscores only)
+     - Enter username (alphanumeric, underscores only)
      - Add bio (optional)
      - Select style interests (Fashion, Streetwear, Vintage, etc.)
      - Choose gender preference (optional)

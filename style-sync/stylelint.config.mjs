@@ -11,6 +11,4 @@
  * To update: Run `npx shop-minis upgrade`
  * Learn more: https://shopify.dev/docs/api/shop-minis/configuration
  */
-const shopMinisConfig = require("@shopify/shop-minis-react/eslint/config");
-
-module.exports = [shopMinisConfig];
+export { default } from "@shopify/shop-minis-react/stylelint/config";

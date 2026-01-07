@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import logoImage from '../logo.png'
+import logoImage from '../icon.png'
 
 interface FeedsDeckButtonProps {
   onOpen: () => void

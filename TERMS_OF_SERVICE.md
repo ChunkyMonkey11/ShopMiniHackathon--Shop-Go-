@@ -43,7 +43,7 @@ We recommend that users be at least 13 years old to use StyleSync.
 ### 4.2 Username Requirements
 
 - Usernames must be unique
-- Usernames must be lowercase, alphanumeric, and may include underscores
+- Usernames must be alphanumeric and may include underscores (case-insensitive)
 - Usernames must be at least 3 characters long
 - We reserve the right to reject or change usernames that violate these Terms
 
@@ -257,4 +257,5 @@ By using StyleSync, you acknowledge that you have read, understood, and agree to
 ---
 
 **Last Updated:** January 2025
+
 

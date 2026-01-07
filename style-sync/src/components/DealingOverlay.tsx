@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import logoImage from '../logo.png'
+import logoImage from '../icon.png'
 
 interface DealingOverlayProps {
   onFinish: () => void

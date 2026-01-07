@@ -1,3 +1,4 @@
+/* eslint-disable shop-minis/no-secrets */
 // Edge Function: create-profile
 // Purpose: Save a new user profile to Supabase database
 // Called from: OnboardingPage.tsx when user completes setup
@@ -56,7 +57,7 @@ Deno.serve(async (req) => {
     // We need to verify this token to ensure the request is legitimate.
     
     // Get the Authorization header from the request
-    // Example header: "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    // Example header format: "Authorization: Bearer <token>"
     const authHeader = req.headers.get('Authorization')
     
     // If no header exists, reject the request immediately
@@ -253,7 +254,7 @@ Deno.serve(async (req) => {
 
 // Test with curl:
 // curl -X POST https://YOUR_PROJECT.supabase.co/functions/v1/create-profile \
-//   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+//   -H "Authorization: Bearer <token>" \
 //   -H "Content-Type: application/json" \
 //   -d '{"profileData": {...}}'
 

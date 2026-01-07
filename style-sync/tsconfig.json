@@ -1,4 +1,9 @@
 {
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "//": "⚠️ MANAGED BY SHOP MINIS - DO NOT EDIT",
+  "//info": "This file is maintained by @shopify/shop-minis-cli",
+  "//update": "To update run: npx shop-minis upgrade",
+  "//docs": "Learn more: https://shopify.dev/docs/api/shop-minis/configuration",
   "compilerOptions": {
     "allowJs": true,
     "resolveJsonModule": true,
@@ -6,11 +11,7 @@
     "esModuleInterop": true,
     "isolatedModules": false,
     "jsx": "react-jsx",
-    "lib": [
-      "ES2021",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "lib": ["ES2021", "DOM", "DOM.Iterable"],
     "noUnusedParameters": true,
     "noUnusedLocals": true,
     "moduleResolution": "bundler",
@@ -33,13 +34,5 @@
     "alwaysStrict": true,
     "useUnknownInCatchVariables": false
   },
-  "include": [
-    "src/**/*",
-    "types.d.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "supabase"
-  ]
+  "exclude": ["node_modules", "dist", "supabase"]
 }

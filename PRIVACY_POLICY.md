@@ -19,7 +19,7 @@ By using StyleSync, you agree to the collection and use of information in accord
 
 When you create a StyleSync profile, we collect:
 
-- **Username** - A unique identifier you choose (lowercase, alphanumeric)
+- **Username** - A unique identifier you choose (alphanumeric, case-insensitive)
 - **Bio** - Optional personal description you provide
 - **Style Interests** - Tags you select (e.g., Fashion, Streetwear, Vintage)
 - **Gender Preference** - Optional information you provide
@@ -176,4 +176,5 @@ If you have any questions about this Privacy Policy or wish to exercise your rig
 ---
 
 **Governing Law:** This Privacy Policy is governed by the laws of the United States.
+
 
