@@ -224,6 +224,8 @@ export function ProfileEditPage({ onBack, onSave }: ProfileEditPageProps) {
                             onChange={(e) => setBio(e.target.value)}
                             placeholder="Tell us about your style..."
                             className="w-full"
+                            autoCapitalize="none"
+                            autoCorrect="off"
                         />
                     </div>
                     

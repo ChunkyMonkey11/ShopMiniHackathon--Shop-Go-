@@ -61,7 +61,13 @@ class ApiClient {
 
     // Ensure we have a token getter
     if (!this.getTokenFn) {
-      throw new Error('API Client not initialized. Call setTokenGetter() first.')
+      // Wait a bit for initialization (useAuth initializes in useEffect)
+      // This handles race conditions where API is called before initialization
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
+      if (!this.getTokenFn) {
+        throw new Error('API Client not initialized. Call setTokenGetter() first.')
+      }
     }
 
     // Make the request with retry logic
@@ -118,6 +124,7 @@ class ApiClient {
 
   /**
    * Handle 401 errors by refreshing token and retrying request
+   * This method automatically handles token expiration gracefully
    */
   private async handle401(url: string, options: RequestInit): Promise<Response> {
     // If we're already refreshing, queue this request
@@ -131,17 +138,20 @@ class ApiClient {
     this.isRefreshing = true
 
     try {
+      // Silently refresh token - don't log errors to avoid user confusion
       if (!this.refreshTokenFn) {
         // Fallback to getTokenFn if no explicit refresh function
         if (!this.getTokenFn) {
           throw new AuthenticationError('No token refresh function available')
         }
+        // Clear any cached token to force refresh
         await this.getTokenFn()
       } else {
+        // Use explicit refresh function which clears cache
         await this.refreshTokenFn()
       }
 
-      // Retry the original request with new token
+      // Retry the original request with new token (only once to avoid infinite loops)
       const retryResponse = await this.makeRequest(url, options)
 
       // Process queued requests
@@ -292,6 +302,36 @@ export async function apiRequestJson<T = any>(
 ): Promise<T> {
   const response = await apiRequest(url, options, clientOptions)
   return response.json()
+}
+
+/**
+ * Make an API request with automatic 401 handling and retry
+ * This is the recommended way to make API calls - it automatically:
+ * - Handles token expiration (401 errors)
+ * - Refreshes tokens silently
+ * - Retries the request automatically
+ * - Queues concurrent requests during token refresh
+ */
+export async function makeAuthenticatedRequest<T = any>(
+  url: string,
+  options: RequestInit = {},
+  clientOptions?: ApiClientOptions
+): Promise<T> {
+  try {
+    return await apiRequestJson<T>(url, options, clientOptions)
+  } catch (error) {
+    // If it's an authentication error, the apiClient should have already tried to refresh
+    // But if refresh failed, we can try one more time
+    if (error instanceof Error && 
+        (error.message.includes('401') || 
+         error.message.includes('Authentication') ||
+         error.message.includes('Token expired'))) {
+      // Wait a bit and try once more
+      await new Promise(resolve => setTimeout(resolve, 500))
+      return await apiRequestJson<T>(url, options, clientOptions)
+    }
+    throw error
+  }
 }
 
 export default apiClient

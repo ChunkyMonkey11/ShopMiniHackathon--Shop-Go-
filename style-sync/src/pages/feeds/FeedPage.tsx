@@ -6,11 +6,12 @@ import { FriendPokerCard } from '../../components/FriendPokerCard'
 interface FeedPageProps {
   onBack: () => void
   onFriendClick?: (friendCard: FriendCard) => void
+  onNavigateToFriends?: () => void
 }
 
 type ViewMode = 'grid' | 'list'
 
-export function FeedPage({ onBack, onFriendClick }: FeedPageProps) {
+export function FeedPage({ onBack, onFriendClick, onNavigateToFriends }: FeedPageProps) {
   const [cards, setCards] = useState<FriendCard[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -89,6 +90,8 @@ export function FeedPage({ onBack, onFriendClick }: FeedPageProps) {
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full px-4 py-2.5 bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
           style={{ fontFamily: "'Inter', sans-serif" }}
+          autoCapitalize="none"
+          autoCorrect="off"
         />
       </div>
 
@@ -156,11 +159,20 @@ export function FeedPage({ onBack, onFriendClick }: FeedPageProps) {
           <p className="text-lg font-semibold text-white mb-2" style={{ fontFamily: "'Inter', sans-serif" }}>
             {searchQuery ? 'No friends found' : 'No friends yet'}
           </p>
-          <p className="text-sm text-white/70" style={{ fontFamily: "'Inter', sans-serif" }}>
+          <p className="text-sm text-white/70 mb-6" style={{ fontFamily: "'Inter', sans-serif" }}>
             {searchQuery
               ? 'Try a different search term'
               : "Add friends to deal your deck."}
           </p>
+          {!searchQuery && onNavigateToFriends && (
+            <button
+              onClick={onNavigateToFriends}
+              className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl active:scale-95"
+              style={{ fontFamily: "'Inter', sans-serif" }}
+            >
+              Add Friends
+            </button>
+          )}
         </div>
       )}
 

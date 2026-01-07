@@ -146,7 +146,7 @@ export function MainApp() {
     const { currentUser } = useCurrentUser()
     
     /** Auth hook - provides JWT token for API calls */
-    const { getValidToken } = useAuth()
+    const { getValidToken, refreshToken } = useAuth()
     
     /** Friends hook - provides friends list and count */
     const { receivedRequests, refreshData } = useFriendRequests()
@@ -234,12 +234,12 @@ export function MainApp() {
      * Fetches the current user's profile from the backend.
      * 
      * Flow:
-     * 1. Get JWT token via useAuth hook
+     * 1. Uses centralized API client which automatically handles token refresh
      * 2. Call check-profile Edge Function
      * 3. Update profile state with fetched data
      * 4. Handle errors and loading states
      * 
-     * @throws {Error} If API call fails or returns non-OK status
+     * Automatically handles 401 errors by refreshing token and retrying
      */
     const fetchUserProfile = async () => {
         try {
@@ -247,28 +247,21 @@ export function MainApp() {
             setIsLoading(true)
             setError(null)
             
-            // Get JWT token for authenticated API request
-            const token = await getValidToken()
+            // Ensure API client is initialized before using it
+            // The useAuth hook initializes it, but we ensure it's ready here as a safety check
+            const { initializeApiClient, makeAuthenticatedRequest } = await import('../utils/apiClient')
             
-            // Call check-profile Edge Function to fetch user profile
-            const response = await fetch(
-                'https://fhyisvyhahqxryanjnby.supabase.co/functions/v1/check-profile',
-                {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    }
-                }
+            // Initialize API client if not already initialized (safety check)
+            initializeApiClient(getValidToken, refreshToken)
+            
+            // Use centralized API client which handles 401s automatically
+            // Token expiration is handled silently - token is refreshed and request is retried
+            const result = await makeAuthenticatedRequest<{ hasProfile: boolean; profile?: UserProfile }>(
+                'check-profile',
+                { method: 'GET' }
             )
 
-            // Handle API errors
-            if (!response.ok) {
-                throw new Error(`Failed to fetch profile: ${response.status}`)
-            }
-
-            // Parse response and update profile state
-            const result = await response.json()
+            // Update profile state
             if (result.hasProfile && result.profile) {
                 setProfile(result.profile)
             } else {
@@ -276,10 +269,29 @@ export function MainApp() {
                 setError('No profile found')
             }
         } catch (error) {
-            // Log error for debugging
-            console.error('Error fetching profile:', error)
-            // Set user-friendly error message
-            setError(error instanceof Error ? error.message : 'Failed to load profile')
+            // Only show non-authentication errors to user
+            // 401 errors are handled automatically by apiClient
+            if (error instanceof Error) {
+                // Check if it's an authentication error that couldn't be recovered
+                const isAuthError = error.message.includes('Authentication') || 
+                                   error.message.includes('401') ||
+                                   error.message.includes('Token')
+                
+                if (isAuthError) {
+                    // Try one more time after a brief delay
+                    console.log('🔄 Authentication error detected, retrying...')
+                    setTimeout(() => {
+                        fetchUserProfile()
+                    }, 1000)
+                    return // Don't set error state, just retry
+                }
+                
+                // Log other errors for debugging
+                console.error('Error fetching profile:', error)
+                setError(error.message)
+            } else {
+                setError('Failed to load profile')
+            }
         } finally {
             // Always stop loading indicator
             setIsLoading(false)
@@ -407,6 +419,7 @@ export function MainApp() {
                     setSelectedFriend(friendCard)
                     setCurrentView('friend-feed')
                 }}
+                onNavigateToFriends={() => setCurrentView('friends')}
             />
         )
     }

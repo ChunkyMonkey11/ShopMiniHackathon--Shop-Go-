@@ -179,6 +179,8 @@ export function FriendsPage({ onBack }: FriendsPageProps) {
                                     placeholder="@username"
                                     className="w-full text-base text-gray-900"
                                     style={{ color: '#111827' }}
+                                    autoCapitalize="none"
+                                    autoCorrect="off"
                                     onKeyPress={(e) => {
                                         if (e.key === 'Enter' && friendUsername.trim() && !isSubmitting) {
                                             handleSendRequest()

@@ -195,6 +195,7 @@ Deno.serve(async (req) => {
 // TESTING:
 // First get a JWT token by calling the auth endpoint with a Shop Mini token
 // Then test this endpoint:
+// eslint-disable-next-line shop-minis/no-secrets
 // curl -X GET "https://fhyisvyhahqxryanjnby.supabase.co/functions/v1/check-username-availability?username=testuser" \
 //   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 

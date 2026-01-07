@@ -51,6 +51,9 @@ export function useAuth() {
   // Cache for getSecret() result to avoid rate limiting
   const secretCacheRef = useRef<{ data: string | null; timestamp: number } | null>(null)
   const SECRET_CACHE_TTL = 5000 // Cache for 5 seconds
+  
+  // Track if API client has been initialized
+  const apiClientInitializedRef = useRef(false)
 
   // Helper to get secret with caching to avoid rate limits
   const getCachedSecret = useCallback(async (): Promise<string | null> => {
@@ -375,9 +378,20 @@ export function useAuth() {
   /**
    * Initialize API client with token getter and refresher
    * This allows the API client to automatically handle 401s
+   * Initialize immediately and also in useEffect to handle callback updates
    */
-  useEffect(() => {
+  // Initialize immediately when callbacks are available (synchronous)
+  if (getValidToken && refreshToken && !apiClientInitializedRef.current) {
     initializeApiClient(getValidToken, refreshToken)
+    apiClientInitializedRef.current = true
+  }
+  
+  useEffect(() => {
+    // Also initialize in useEffect to handle callback updates
+    if (getValidToken && refreshToken) {
+      initializeApiClient(getValidToken, refreshToken)
+      apiClientInitializedRef.current = true
+    }
   }, [getValidToken, refreshToken])
 
   // ============================================

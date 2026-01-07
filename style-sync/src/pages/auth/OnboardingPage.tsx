@@ -327,6 +327,8 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                                 placeholder="Your Username"
                                 className="w-full rounded-full px-4 py-2.5"
                                 aria-invalid={!!errors.username}
+                                autoCapitalize="none"
+                                autoCorrect="off"
                             />
                             {isCheckingUsername && (
                                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
@@ -371,6 +373,8 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                             onChange={(e) => setBio(e.target.value)}
                             placeholder="Tell us about your style..."
                             className="w-full rounded-full px-4 py-2.5"
+                            autoCapitalize="none"
+                            autoCorrect="off"
                         />
                     </div>
                     
@@ -408,6 +412,8 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                                         onBlur={handleBubbleBlur}
                                         placeholder="Type interest..."
                                         className="bg-transparent border-none outline-none text-blue-800 placeholder-blue-400 w-32"
+                                        autoCapitalize="none"
+                                        autoCorrect="off"
                                         autoFocus
                                     />
                                 </div>
